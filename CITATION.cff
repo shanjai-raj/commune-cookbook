@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use these examples in your work, please cite this repository."
+type: software
+title: "email-for-agents: Email & SMS examples for AI agents"
+abstract: "Production-ready examples for giving AI agents a real email address and phone number. Covers LangChain, CrewAI, OpenAI Agents SDK, Claude, MCP, TypeScript, and SMS — powered by Commune."
+authors:
+  - name: "Commune"
+    website: "https://commune.email"
+repository-code: "https://github.com/shanjairaj7/email-for-agents"
+url: "https://commune.email"
+license: MIT
+keywords:
+  - ai-agents
+  - email
+  - sms
+  - langchain
+  - crewai
+  - openai
+  - claude
+  - mcp
+  - typescript
+  - python
+date-released: "2025-02-20"
+version: "0.4.0"

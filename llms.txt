@@ -1,0 +1,47 @@
+# email-for-agents
+
+> Production-ready code examples for giving AI agents a real email address and phone number. Covers LangChain, CrewAI, OpenAI Agents SDK, Claude, MCP Server, TypeScript, and SMS. Powered by Commune — email + SMS infrastructure built natively for AI agents.
+
+All examples are runnable with a Commune API key. Copy, paste, run.
+
+## Platforms
+
+- [LangChain examples](langchain/): Customer support agent, lead outreach, email+SMS tools
+- [CrewAI examples](crewai/): Support crew, outreach crew with multi-agent coordination
+- [OpenAI Agents SDK examples](openai-agents/): Support agent, multi-agent handoff
+- [Claude (Anthropic) examples](claude/): Support agent, extraction agent
+- [MCP Server](mcp-server/): 13-tool MCP server for Claude Desktop and Cursor
+- [TypeScript examples](typescript/): Webhook handler, multi-agent coordination
+- [SMS examples](sms/): Alert agent, two-way SMS conversation handler
+- [OpenClaw integration](openclaw-email-sms/): Email & SMS skills for OpenClaw agents
+
+## Use Cases
+
+- [Customer support](use-cases/customer-support/): Email agent, SMS bot, omnichannel
+- [Hiring & recruiting](use-cases/hiring-and-recruiting/): SMS worker dispatch, candidate outreach, interview scheduler
+- [Sales & marketing](use-cases/sales-and-marketing/): Cold email sequences, SMS lead qualification, newsletter
+- [Research](use-cases/research/): Email research agent
+- [Notifications & alerts](use-cases/notifications-and-alerts/): Incident alerts, transactional SMS
+
+## Capabilities
+
+- [Quickstart](capabilities/quickstart/): Send first email in 60 seconds
+- [Email threading](capabilities/email-threading/): Full thread context management
+- [Extraction](capabilities/extraction/): Extract structured data from email content
+- [Search](capabilities/search/): Semantic vector search across email history
+- [Webhooks](capabilities/webhooks/): Receive and verify inbound email webhooks
+- [Phone numbers](capabilities/phone-numbers/): Provision and manage phone numbers
+- [SMS](capabilities/sms/): Send and receive SMS messages
+
+## API & SDK
+
+- [Commune docs](https://docs.commune.email): Full REST API reference, guides
+- [Python SDK](https://pypi.org/project/commune-mail/): `pip install commune-mail`
+- [TypeScript SDK](https://www.npmjs.com/package/commune-ai): `npm install commune-ai`
+- [Dashboard](https://commune.email/dashboard): Get API key, manage inboxes, view webhooks
+
+## Optional
+
+- [CHANGELOG](CHANGELOG.md): Version history
+- [CONTRIBUTING](CONTRIBUTING.md): How to add examples
+- [SECURITY](SECURITY.md): Responsible disclosure
