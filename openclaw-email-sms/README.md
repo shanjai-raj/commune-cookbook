@@ -1,10 +1,10 @@
-# Commune + OpenClaw — Email & SMS for Your AI Agent
+# Email & SMS for OpenClaw Agents
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-compatible-orange)](https://openclaw.ai)
 [![Commune](https://img.shields.io/badge/Commune-email%20%2B%20SMS-blue)](https://commune.email)
 [![Skills](https://img.shields.io/badge/skills-2%20included-green)](#skills)
 
-**Give your OpenClaw agent a real email address and phone number. Send emails, receive replies, send SMS — all from WhatsApp, Telegram, or any chat app your agent lives in.**
+**Give your OpenClaw agent its own email address and phone number. Ask it to check email, reply to threads, and send SMS — from WhatsApp, Telegram, iMessage, or wherever your agent lives.**
 
 ---
 
@@ -93,7 +93,7 @@ Each skill includes a companion Node.js CLI helper so your agent can shell out t
 ```bash
 # Clone this repo
 git clone https://github.com/commune-email/email-for-agents
-cd email-for-agents/commune-openclaw-starter
+cd email-for-agents/openclaw-email-sms
 
 # Copy skills to your OpenClaw workspace
 cp -r skills/commune-email ~/.openclaw/workspace/skills/
@@ -176,7 +176,7 @@ See [setup/README.md](./setup/README.md) for step-by-step installation, inbox cr
 ## File Structure
 
 ```
-commune-openclaw-starter/
+openclaw-email-sms/
 ├── README.md                          # This file
 ├── skills/
 │   ├── commune-email/

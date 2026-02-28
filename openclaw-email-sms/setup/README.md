@@ -18,7 +18,7 @@ Step-by-step instructions for connecting your OpenClaw agent to Commune email an
 ```bash
 # Clone the email-for-agents repo
 git clone https://github.com/commune-email/email-for-agents
-cd email-for-agents/commune-openclaw-starter
+cd email-for-agents/openclaw-email-sms
 
 # Copy skills into your OpenClaw workspace
 cp -r skills/commune-email ~/.openclaw/workspace/skills/

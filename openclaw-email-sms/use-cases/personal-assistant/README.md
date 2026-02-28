@@ -110,8 +110,8 @@ Sign up at [commune.email](https://commune.email) and copy your API key from the
 
 ```bash
 git clone https://github.com/commune-email/email-for-agents
-cp -r email-for-agents/commune-openclaw-starter/skills/commune-email ~/.openclaw/workspace/skills/
-cp -r email-for-agents/commune-openclaw-starter/skills/commune-sms ~/.openclaw/workspace/skills/
+cp -r email-for-agents/openclaw-email-sms/skills/commune-email ~/.openclaw/workspace/skills/
+cp -r email-for-agents/openclaw-email-sms/skills/commune-sms ~/.openclaw/workspace/skills/
 ```
 
 ### 3. Set Environment Variables
