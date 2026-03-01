@@ -1,79 +1,46 @@
 name: Bug Report
-description: Something isn't working in one of the examples
+description: Report a bug or unexpected behavior
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: |
-        Thanks for filing a bug! The more detail you include, the faster we can fix it.
-
-  - type: dropdown
-    id: example
-    attributes:
-      label: Which example?
-      description: Which folder/example has the bug?
-      options:
-        - langchain/customer-support
-        - langchain/lead-outreach
-        - langchain/email-sms-tools
-        - crewai/support-crew
-        - crewai/outreach-crew
-        - openai-agents/support-agent
-        - openai-agents/multi-agent-handoff
-        - claude/support-agent
-        - claude/extraction-agent
-        - mcp-server
-        - typescript/webhook-handler
-        - typescript/multi-agent
-        - sms/alert-agent
-        - sms/two-way-sms
-        - use-cases/customer-support
-        - use-cases/hiring-and-recruiting
-        - use-cases/sales-and-marketing
-        - use-cases/research
-        - use-cases/notifications-and-alerts
-        - openclaw-email-sms
-        - Other / Not sure
-    validations:
-      required: true
-
-  - type: input
-    id: sdk-version
-    attributes:
-      label: SDK version
-      description: "`pip show commune-mail` or `npm list commune-ai`"
-      placeholder: "commune-mail==0.3.1"
-
+      value: "Thanks for reporting a bug! Please fill out the details below."
   - type: textarea
-    id: what-happened
+    id: description
     attributes:
       label: What happened?
-      description: Describe the bug. Include the full error and stack trace.
-      placeholder: |
-        Running `python agent.py` throws:
-        AttributeError: 'CommuneClient' object has no attribute 'threads'
+      description: Describe the bug. What did you expect vs what actually happened?
     validations:
       required: true
-
   - type: textarea
-    id: reproduce
+    id: reproduction
     attributes:
-      label: Steps to reproduce
-      description: Minimal steps to reproduce the bug.
-      placeholder: |
-        1. Clone repo
-        2. `cd langchain/customer-support`
-        3. `pip install -r requirements.txt`
-        4. `python agent.py`
+      label: Minimal reproduction
+      description: Paste the shortest code that reproduces the issue
+      render: python
     validations:
       required: true
-
   - type: textarea
-    id: env
+    id: error
     attributes:
-      label: Environment
-      description: OS, Python/Node version
-      placeholder: |
-        - OS: macOS 14.2
-        - Python: 3.11.7
-        - Node: 20.11.0
+      label: Error message or unexpected output
+      render: text
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Agent framework
+      options:
+        - LangChain
+        - CrewAI
+        - OpenAI Agents SDK
+        - Claude / Anthropic
+        - AutoGen
+        - None / plain Python
+        - Other
+  - type: input
+    id: version
+    attributes:
+      label: commune-mail version
+      placeholder: "e.g. 0.2.1"
+    validations:
+      required: true
