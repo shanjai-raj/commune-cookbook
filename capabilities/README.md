@@ -1,32 +1,44 @@
-# Capabilities — Every Commune Feature with Examples
+# Capabilities Reference — Commune for AI Agents
 
-Reference implementation for every Commune feature. Start with Quickstart, then explore the capabilities you need.
+Deep dives on each Commune capability. Start here to understand how features work before building.
 
-## All capabilities
+## Capabilities
 
-| Capability | Description | Files |
-|-----------|-------------|-------|
-| [Quickstart](quickstart/) | Get an email + phone in 60 seconds | 5 minimal examples |
-| [Email Threading](email-threading/) | Keep replies in the same email chain | 2 examples (Python + TypeScript) |
-| [Structured Extraction](structured-extraction/) | JSON schema extraction on inbound emails | 3 schemas + 2 examples |
-| [Semantic Search](semantic-search/) | Natural language search across threads | 2 examples |
-| [Webhook Delivery](webhook-delivery/) | Real-time inbound email handling | Setup + handler |
-| [Phone Numbers](phone-numbers/) | Manage phone numbers programmatically | 2 examples |
-| [SMS](sms/) | Quickstart, mass SMS, two-way SMS | 3 sub-examples |
+| Capability | What it does | When to use |
+|-----------|-------------|-------------|
+| [Quickstart](quickstart/) | Create inbox, send email, receive webhook | Starting a new agent project |
+| [Email Threading](email-threading/) | Reply in-thread with RFC 5322 compliance | Any email-based agent |
+| [Structured Extraction](structured-extraction/) | Auto-parse email fields to JSON schema | Support tickets, orders, applications |
+| [Semantic Search](semantic-search/) | Natural language search across history | Retrieving context before replying |
+| [Webhook Delivery](webhook-delivery/) | Real-time delivery with 8-retry guarantee | Production agents needing reliability |
+| [Phone Numbers](phone-numbers/) | Provision and manage real phone numbers | SMS-capable agents |
+| [SMS](sms/) | Send, receive, broadcast SMS messages | Urgent notifications, lead qualification |
 
----
+## Architecture overview
 
-## Start here
+```
+Your AI Agent
+    ↕ commune-mail (Python) or commune-ai (TypeScript)
+         ↕
+     Commune Platform
+         ├── Inbox Management (create, configure, delete)
+         ├── Email Engine (inbound processing, outbound delivery)
+         ├── Thread Store (RFC 5322 threading, history)
+         ├── Vector Index (semantic search across email + SMS)
+         ├── Extraction Engine (JSON schema parsing, zero extra LLM calls)
+         ├── Webhook Dispatcher (HMAC-signed, 8 retries, circuit breaker)
+         └── SMS Gateway (provision, send, receive, search)
+```
 
-Recommended path through the capabilities:
+## Recommended path
 
 ```
 quickstart/ → email-threading/ → structured-extraction/ → webhook-delivery/
 ```
 
-1. **[quickstart/](quickstart/)** — provision an inbox and phone number, send your first message. Five minimal examples covering Python and TypeScript. Takes under 60 seconds.
+1. **[quickstart/](quickstart/)** — provision an inbox and phone number, send your first message. Covers Python and TypeScript. Takes under 60 seconds.
 
-2. **[email-threading/](email-threading/)** — once you have an inbox, learn how to keep replies in the correct thread. Covers `In-Reply-To` / `References` headers (RFC 5322) and the `thread_id` pattern.
+2. **[email-threading/](email-threading/)** — learn how to keep replies in the correct thread. Covers `In-Reply-To` / `References` headers (RFC 5322) and the `thread_id` pattern.
 
 3. **[structured-extraction/](structured-extraction/)** — attach a JSON schema to an inbox so every inbound email is parsed automatically. No extra LLM calls required. Includes three ready-made schemas (support ticket, order confirmation, lead form).
 
@@ -38,25 +50,17 @@ After those four, explore based on what you need:
 - **[phone-numbers/](phone-numbers/)** — provision and manage real phone numbers programmatically.
 - **[sms/](sms/)** — send, receive, and broadcast SMS from a real phone number.
 
----
+## Security layers
 
-## Quick orientation
+All inbound content passes through:
+1. DNSBL check (sender IP against blackhole lists)
+2. SPF/DKIM/DMARC validation
+3. Content analysis (spam patterns, phishing keywords)
+4. URL validation (typosquatting, low-authority domains)
+5. Prompt injection detection (before content reaches your agent)
+6. Attachment scanning (ClamAV + heuristic fallback)
 
-```mermaid
-flowchart TD
-    A[Your AI Agent] --> B[commune-mail / commune-ai SDK]
-    B --> C[Commune Platform]
-    C --> D[Semantic Search\nvector embeddings across email + SMS]
-    C --> E[Webhook Delivery\nHMAC-signed, 8-retry backoff]
-    C --> F[Phone Numbers\nreal numbers, auto-reply, block lists]
-    C --> G[SMS\nsend · mass broadcast · two-way]
-```
-
----
-
-## Getting started
-
-Install the SDK:
+## Install
 
 ```bash
 # Python
@@ -68,9 +72,7 @@ npm install commune-ai
 
 Get your API key at [commune.email](https://commune.email) — free tier, no credit card required.
 
----
+## Related
 
-## See also
-
-- [Framework examples](../) — LangChain, CrewAI, OpenAI Agents, Claude, MCP
-- [Use cases](../use-cases/) — end-to-end workflows built on these capabilities
+- [Use cases](../use-cases/) — domain-specific production patterns
+- [Framework examples](../langchain/) — LangChain, CrewAI, OpenAI Agents, Claude, MCP

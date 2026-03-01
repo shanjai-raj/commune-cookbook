@@ -1,248 +1,176 @@
-# Claude (Anthropic) Email & SMS Examples
+# Claude + Commune — Email Tools via tool_use API
 
-Claude's `tool_use` API maps cleanly onto Commune operations. Define tools as JSON schemas, send them with your message, handle `tool_use` content blocks in the response, call the Commune SDK, return `tool_result` blocks — Claude handles the rest.
-
----
-
-## Examples
-
-| Example | Description |
-|---------|-------------|
-| [Customer Support Agent](customer_support/) | Claude reads inbox, reasons over thread history, and sends contextual replies |
-| [Lead Outreach](lead_outreach/) | Claude personalises and sends cold emails from a contact list |
-| [Structured Extraction](structured_extraction/) | Claude uses per-inbox JSON schemas to extract structured data from inbound emails |
-
----
+Use Commune with Claude's `tool_use` API directly. Define tools, handle `tool_use` blocks, return `tool_result` — Commune becomes part of Claude's reasoning loop.
 
 ## Install
 
 ```bash
-pip install commune-mail anthropic python-dotenv
+pip install commune-mail anthropic
+export COMMUNE_API_KEY="comm_..."
+export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
-## Configure
-
-```bash
-export COMMUNE_API_KEY=comm_...
-export ANTHROPIC_API_KEY=sk-ant-...
-```
-
----
-
-## How it works
-
-Define Commune operations as Anthropic tool schemas. Pass them in the `tools` array. When Claude wants to call a tool, the response contains a `tool_use` content block. Execute the Commune SDK call, package the result as a `tool_result` block, and continue the conversation.
+## Tool definitions
 
 ```python
-import os
-import json
 import anthropic
 from commune import CommuneClient
 
-commune = CommuneClient(api_key=os.environ["COMMUNE_API_KEY"])
-client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-INBOX_ID = os.environ["COMMUNE_INBOX_ID"]
+client = CommuneClient(api_key=os.environ["COMMUNE_API_KEY"])
 
-# Tool definitions — Claude reads these to understand what each tool does and when to use it
 TOOLS = [
     {
-        "name": "list_threads",
-        "description": "List the most recent email threads in the support inbox. "
-                       "Returns thread IDs, subjects, sender addresses, and statuses.",
+        "name": "read_inbox",
+        "description": "Read recent email threads from the agent inbox. Returns subject, sender, and snippet for each thread.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "limit": {
-                    "type": "integer",
-                    "description": "Number of threads to return. Default 10.",
-                    "default": 10,
-                }
-            },
-            "required": [],
-        },
+                "limit": {"type": "integer", "description": "Number of threads to return (default 10)"},
+            }
+        }
     },
     {
-        "name": "get_thread_messages",
-        "description": "Get all messages in an email thread. Call this before drafting a reply "
-                       "to read the full conversation history.",
+        "name": "get_thread",
+        "description": "Get the full message history for a thread. Use before replying to understand the full context.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "thread_id": {
-                    "type": "string",
-                    "description": "The thread ID to retrieve messages from.",
-                }
+                "thread_id": {"type": "string", "description": "Thread ID from read_inbox"},
             },
-            "required": ["thread_id"],
-        },
+            "required": ["thread_id"]
+        }
     },
     {
-        "name": "search_threads",
-        "description": "Search past email threads using semantic similarity. "
-                       "Useful for finding similar resolved issues before drafting a reply.",
+        "name": "reply_in_thread",
+        "description": "Send a reply within an existing thread. This keeps the conversation grouped in the recipient's email client.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Natural language search query.",
-                }
+                "thread_id": {"type": "string"},
+                "recipient": {"type": "string", "description": "Email address of recipient"},
+                "message": {"type": "string", "description": "Reply text"},
             },
-            "required": ["query"],
-        },
+            "required": ["thread_id", "recipient", "message"]
+        }
     },
     {
-        "name": "send_reply",
-        "description": "Send an email reply into an existing thread. "
-                       "Always include thread_id so the reply is correctly threaded.",
+        "name": "search_history",
+        "description": "Search email history with a natural language query. Use before replying to retrieve context.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "thread_id": {"type": "string", "description": "Thread to reply into."},
-                "to":        {"type": "string", "description": "Recipient email address."},
-                "subject":   {"type": "string", "description": "Email subject line."},
-                "body":      {"type": "string", "description": "Plain text email body."},
+                "query": {"type": "string"},
             },
-            "required": ["thread_id", "to", "subject", "body"],
-        },
-    },
+            "required": ["query"]
+        }
+    }
 ]
+```
 
-# Tool executor — maps tool names to Commune SDK calls
-def execute_tool(name: str, inputs: dict) -> str:
-    if name == "list_threads":
-        threads = commune.threads.list(inbox_id=INBOX_ID, limit=inputs.get("limit", 10))
-        if not threads:
-            return "No threads found."
-        return "\n".join(
-            f"thread_id={t.id} | {t.subject!r} | from={t.from_address} | status={t.status}"
-            for t in threads
-        )
+## Tool execution loop
 
-    elif name == "get_thread_messages":
-        messages = commune.threads.messages(inputs["thread_id"])
-        return "\n\n---\n\n".join(
-            f"From: {m.from_address}\nDate: {m.created_at}\n\n{m.text}"
-            for m in messages
-        )
-
-    elif name == "search_threads":
-        results = commune.search.threads(query=inputs["query"], inbox_id=INBOX_ID, limit=5)
-        if not results:
-            return "No similar threads found."
-        return "\n".join(f"[score={r.score:.2f}] {r.subject}" for r in results)
-
-    elif name == "send_reply":
-        msg = commune.messages.send(
-            to=inputs["to"],
-            subject=inputs["subject"],
-            text=inputs["body"],
+```python
+def run_tool(name: str, inputs: dict) -> str:
+    if name == "read_inbox":
+        threads = client.threads.list(inbox_id=INBOX_ID, limit=inputs.get("limit", 10))
+        return "\n".join([f"[{t.thread_id}] {t.subject}: {t.snippet}" for t in threads.data])
+    elif name == "get_thread":
+        msgs = client.threads.messages(inputs["thread_id"])
+        return "\n---\n".join([f"From {m.sender}:\n{m.content}" for m in msgs])
+    elif name == "reply_in_thread":
+        client.messages.send(
+            to=inputs["recipient"],
+            text=inputs["message"],
             inbox_id=INBOX_ID,
             thread_id=inputs["thread_id"],
         )
-        commune.threads.set_status(inputs["thread_id"], "resolved")
-        return f"Reply sent. Message ID: {msg.id}. Thread marked resolved."
+        return "Reply sent"
+    elif name == "search_history":
+        results = client.search.threads(query=inputs["query"], inbox_id=INBOX_ID)
+        return "\n".join([f"- {r.subject}: {r.snippet}" for r in results.data])
 
-    return f"Unknown tool: {name}"
+claude = anthropic.Anthropic()
 
-# Agentic loop
-def run_support_agent():
-    messages = [
-        {
-            "role": "user",
-            "content": "Check the support inbox. Read any open threads, search for similar past cases, "
-                       "and send helpful replies. Reply only to open threads.",
-        }
-    ]
-
-    system = (
-        "You are a customer support agent with access to the support inbox. "
-        "Work through open tickets systematically: read the thread, search for similar resolved cases, "
-        "then send a helpful, concise reply. Always include thread_id when replying."
-    )
+def process_email(sender: str, content: str, thread_id: str) -> str:
+    messages = [{"role": "user", "content": f"New email from {sender} in thread {thread_id}: {content}"}]
 
     while True:
-        response = client.messages.create(
+        response = claude.messages.create(
             model="claude-opus-4-6",
             max_tokens=4096,
-            system=system,
             tools=TOOLS,
             messages=messages,
+            system="You are a customer support agent. Always search history before replying. Reply in thread, never start a new email."
         )
 
-        # Append Claude's response to message history
-        messages.append({"role": "assistant", "content": response.content})
-
-        # If Claude is done, print final output and exit
         if response.stop_reason == "end_turn":
-            for block in response.content:
-                if hasattr(block, "text"):
-                    print(block.text)
-            break
+            return next(b.text for b in response.content if b.type == "text")
 
-        # Handle tool calls
+        # Handle tool_use blocks
         tool_results = []
         for block in response.content:
             if block.type == "tool_use":
-                print(f"  Calling: {block.name}({json.dumps(block.input, indent=2)})")
-                result = execute_tool(block.name, block.input)
-                print(f"  Result: {result[:200]}{'...' if len(result) > 200 else ''}\n")
+                result = run_tool(block.name, block.input)
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,
                     "content": result,
                 })
 
-        # Return tool results to Claude
+        messages.append({"role": "assistant", "content": response.content})
         messages.append({"role": "user", "content": tool_results})
-
-run_support_agent()
 ```
 
-### Structured extraction example
+## Structured extraction
 
-Define a JSON schema on your inbox and Claude can query the pre-extracted data instead of parsing raw email text:
+Define a JSON schema on your inbox and Claude can query pre-extracted data instead of parsing raw email text:
 
 ```python
 # Set a schema on the inbox once
-commune.inboxes.update(INBOX_ID, extraction_schema={
+client.inboxes.update(INBOX_ID, extraction_schema={
     "type": "object",
     "properties": {
-        "order_id":   { "type": "string" },
-        "issue_type": { "type": "string", "enum": ["damaged", "missing", "wrong_item", "refund"] },
-        "urgency":    { "type": "string", "enum": ["low", "medium", "high"] },
+        "order_id":   {"type": "string"},
+        "issue_type": {"type": "string", "enum": ["damaged", "missing", "wrong_item", "refund"]},
+        "urgency":    {"type": "string", "enum": ["low", "medium", "high"]},
     },
 })
 
-# Now every inbound message has .extracted populated automatically
-# Claude can ask for structured data directly:
-@tool — add to TOOLS:
+# Every inbound message now has .extracted populated automatically
+# Add a tool so Claude can query structured data directly:
 {
     "name": "get_extracted_data",
-    "description": "Get the structured data extracted from an email by the Commune extraction schema.",
+    "description": "Get the structured data auto-extracted from an email by the inbox schema.",
     "input_schema": {
         "type": "object",
         "properties": {
-            "message_id": { "type": "string" }
+            "message_id": {"type": "string"}
         },
         "required": ["message_id"],
     },
 }
 
 # Handler:
-msg = commune.messages.get(inputs["message_id"])
-return json.dumps(msg.extracted, indent=2)
+# msg = client.messages.get(inputs["message_id"])
+# return json.dumps(msg.extracted, indent=2)
 ```
 
----
+## Examples in this folder
+
+| File | Description |
+|------|-------------|
+| `customer_support_agent.py` | Full support loop with tool_use |
+| `lead_outreach_agent.py` | Personalized cold email writer |
+| `structured_extraction_agent.py` | Schema-based email parsing |
 
 ## Tips
 
 - Keep tool descriptions precise — Claude uses them verbatim to decide when to call each tool
 - Enforce required fields like `thread_id` in the schema's `"required"` array
 - Use `claude-opus-4-6` for complex multi-step workflows; `claude-haiku-3-5` for high-volume simpler classification
-- Log tool calls during development (the `print` statements above) — the reasoning trace is invaluable for debugging
+- Log tool calls during development — the reasoning trace is invaluable for debugging
 
----
+## Related
 
-[Back to main README](../README.md)
+- [MCP server](../mcp-server/) — use Commune in Claude Desktop without code
+- [LangChain examples](../langchain/) — @tool decorator pattern

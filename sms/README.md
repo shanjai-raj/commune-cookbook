@@ -1,75 +1,86 @@
-# SMS for AI Agents
+# SMS for AI Agents — Commune
 
-Give your AI agent a real phone number. Send and receive SMS, hold multi-turn conversations, run hiring dispatches, marketing campaigns, and personal assistants — all from Python or TypeScript.
+Give your agent a real phone number. Two-way SMS, unified search with email, instant escalation from email thread to SMS.
+
+## When to use SMS vs email
+
+| Scenario | Use | Why |
+|----------|-----|-----|
+| Urgent alerts | SMS | Immediate delivery, high open rate |
+| Async conversation | Email | Threading, attachments, search |
+| Appointment reminders | SMS | Short, time-sensitive |
+| Customer onboarding | Email | Rich formatting, links |
+| Critical incident | SMS first, email follow-up | SMS for urgency, email for details |
+| Lead qualification | SMS | Higher response rate for cold outreach |
+
+## Install
+
+```bash
+pip install commune-mail
+export COMMUNE_API_KEY="comm_..."
+```
+
+## Provision a phone number
 
 ```python
 from commune import CommuneClient
 
-commune = CommuneClient(api_key="comm_...")
+client = CommuneClient(api_key=os.environ["COMMUNE_API_KEY"])
 
-# Find your phone number
-numbers = commune.phone_numbers.list()
-phone = numbers[0]  # e.g. +14155552671
-
-# Send a text
-result = commune.sms.send(
-    to="+15551234567",
-    body="Your shift starts Monday at 9am. Reply YES to confirm.",
-    phone_number_id=phone.id,
-)
-print(f"Sent — message_id={result.message_id}, credits={result.credits_charged}")
+# Get a real US phone number for your agent
+phone = client.phone_numbers.provision()
+print(phone.number)  # → +14155552671
+print(phone.id)      # → pn_abc123 (use in send calls)
 ```
 
----
+## Send SMS
 
-## What you can build
+```python
+# Basic send
+client.sms.send(
+    to="+14155551234",
+    body="Your order has shipped. Track it at: https://tracking.example.com/123",
+    phone_number_id=phone.id,
+)
 
-| Use case | What it looks like |
-|---|---|
-| Hiring dispatch | Text workers about open shifts, collect YES/NO confirmations |
-| Personal assistant | Your own AI with a real number that texts you back |
-| Marketing campaigns | Personalized outreach with drip follow-ups and response tracking |
-| Alerts and monitoring | Pagerduty-style SMS alerts from any Python process |
-| Customer support | Two-way AI-powered support over SMS with full conversation history |
-| OpenClaw integration | Add SMS skills to your OpenClaw agent |
+# With idempotency key (prevent duplicate sends in retry loops)
+client.sms.send(
+    to="+14155551234",
+    body=f"Order {order_id} shipped",
+    phone_number_id=phone.id,
+    idempotency_key=f"shipment-{order_id}",
+)
+```
 
----
+## Receive SMS (webhook)
 
-## Folder index
+```python
+from flask import Flask, request
 
-| Folder | Description |
-|---|---|
-| [quickstart/](quickstart/) | Send your first SMS in 60 seconds — Python and TypeScript |
-| [agent-with-phone-number/](agent-with-phone-number/) | Flask webhook agent that reads, thinks, and replies via GPT-4o-mini |
-| [hiring-agent/](hiring-agent/) | Dispatch workers, collect YES/NO confirmations, notify manager when filled |
-| [personal-agent/](personal-agent/) | Your personal AI with proactive morning summaries and reactive replies |
-| [sms-marketing/](sms-marketing/) | Broadcast, drip, and status campaigns with opt-out management |
-| [two-way-sms/](two-way-sms/) | Minimal two-way SMS agent — best starting point for custom agents |
-| [openclaw-sms/](openclaw-sms/) | Bridge doc: add SMS skills to your OpenClaw agent |
-| [alert-agent/](alert-agent/) | Send SMS alerts from monitoring scripts and cron jobs |
+app = Flask(__name__)
 
----
+@app.post("/webhook/sms")
+def handle_inbound_sms():
+    payload = request.json
 
-## Capability reference
+    from_number = payload["from"]
+    body = payload["body"]
+    phone_number_id = payload["phoneNumberId"]
 
-| Capability | Method | Notes |
-|---|---|---|
-| Send SMS | `commune.sms.send(to, body, phone_number_id)` | Returns `message_id`, `thread_id`, `credits_charged`, `segments` |
-| Receive webhook | `POST /webhook/sms` | See payload below |
-| Conversation history | `commune.sms.thread(remote_number, phone_number_id)` | Full message history, ordered oldest-first |
-| Semantic search | `commune.sms.search(q, phone_number_id, limit)` | Vector search across all SMS content |
-| Opt-out management | `commune.sms.suppressions(phone_number_id)` | Returns numbers that sent STOP |
-| MMS | `commune.sms.send(..., media_url="https://...")` | Attach images or files |
-| Auto-reply | `commune.phone_numbers.update(phone_number_id, auto_reply="...")` | Set a default auto-reply message |
-| Allow / block lists | `commune.phone_numbers.update(..., allow_list=[...], block_list=[...])` | Per-number access control |
+    # Run your agent
+    reply = agent.process(f"SMS from {from_number}: {body}")
 
----
+    # Reply via SMS
+    client.sms.send(
+        to=from_number,
+        body=reply,
+        phone_number_id=phone_number_id,
+    )
 
-## How it works
+    return {"ok": True}
+```
 
-When someone texts your Commune phone number, Commune posts a JSON payload to your webhook URL. Your server reads the payload, fetches conversation history, generates a reply, and sends it back — all within a few seconds.
-
-**Inbound webhook payload:**
+## Inbound webhook payload
 
 ```python
 {
@@ -77,21 +88,84 @@ When someone texts your Commune phone number, Commune posts a JSON payload to yo
     "to_number": "+18005551234",     # your Commune phone number
     "body": "YES, I'll take the shift",
     "message_sid": "SM...",          # carrier message ID
-    "thread_id": "abc123...",        # Commune thread ID (stable across messages)
-    "message": { ... },              # full UnifiedMessage object
-    "num_segments": 1,               # number of 160-char SMS segments
-    "credits_charged": 2             # credits consumed
+    "thread_id": "abc123...",        # stable across messages with same number
+    "num_segments": 1,
+    "credits_charged": 2
 }
 ```
 
 Your webhook must return HTTP 200 within 10 seconds. Commune retries on failure with exponential backoff.
 
----
+## Escalation pattern (email → SMS)
+
+```python
+import asyncio
+
+async def send_with_sms_escalation(
+    email_address: str,
+    phone_number: str,
+    subject: str,
+    email_body: str,
+    sms_body: str,
+    escalate_after_hours: int = 4,
+):
+    # Send email first
+    msg = client.messages.send(
+        to=email_address,
+        subject=subject,
+        text=email_body,
+        inbox_id=INBOX_ID,
+    )
+
+    # Wait for reply
+    await asyncio.sleep(escalate_after_hours * 3600)
+
+    # Check if replied
+    thread = client.threads.get(msg.thread_id)
+    if thread.message_count == 1:  # no reply yet
+        # Escalate to SMS
+        client.sms.send(
+            to=phone_number,
+            body=sms_body,
+            phone_number_id=PHONE_NUMBER_ID,
+        )
+```
+
+## Unified search (email + SMS)
+
+```python
+# Search across BOTH email and SMS history with one query
+results = client.search.threads(
+    query="customer asking about delivery",
+    inbox_id=INBOX_ID,
+)
+# Returns matching threads from both email and SMS, ranked by semantic similarity
+```
+
+## Capability reference
+
+| Capability | Method | Notes |
+|-----------|--------|-------|
+| Send SMS | `client.sms.send(to, body, phone_number_id)` | Returns message_id, thread_id, credits_charged |
+| Receive webhook | `POST /webhook/sms` | See payload above |
+| Conversation history | `client.sms.thread(remote_number, phone_number_id)` | Full history, ordered oldest-first |
+| Semantic search | `client.sms.search(q, phone_number_id, limit)` | Vector search across all SMS content |
+| Opt-out management | `client.sms.suppressions(phone_number_id)` | Returns numbers that sent STOP |
+| MMS | `client.sms.send(..., media_url="https://...")` | Attach images or files |
+| Auto-reply | `client.phone_numbers.update(id, auto_reply="...")` | Set a default auto-reply message |
+| Allow / block lists | `client.phone_numbers.update(..., allow_list=[...], block_list=[...])` | Per-number access control |
+
+## Examples in this folder
+
+| File | Description |
+|------|-------------|
+| `provision_and_send.py` | Get a number and send first SMS |
+| `two_way_sms_agent.py` | Receive SMS, process with LLM, reply |
+| `email_sms_escalation.py` | Escalate from email to SMS after no reply |
+| `mass_sms_campaign.py` | Send to a list with deduplication |
 
 ## Related
 
+- [Email examples](../langchain/) — email-first workflows
 - [capabilities/sms/](../capabilities/sms/) — full API reference for all SMS methods
-- [capabilities/phone-numbers/](../capabilities/phone-numbers/) — provisioning, webhooks, allow/block lists
 - [use-cases/hiring-and-recruiting/](../use-cases/hiring-and-recruiting/) — end-to-end hiring workflows
-- [use-cases/sales-and-marketing/](../use-cases/sales-and-marketing/) — outbound campaigns and follow-ups
-- [openclaw-email-sms/](../openclaw-email-sms/) — SMS and email skills for OpenClaw agents

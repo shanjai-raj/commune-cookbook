@@ -1,45 +1,78 @@
-# Use Cases — What Will You Build?
+# Use Cases — Email & SMS for AI Agents
 
-Organized by what you're building, not by framework. Every example includes working code, architecture diagrams, and clear explanations.
+Real-world production patterns organized by domain. Every example is standalone and runnable.
 
-## All use cases
+## Browse by domain
 
-| Use Case | Description | Channel | Examples |
-|----------|-------------|---------|----------|
-| [Customer Support Agent](customer-support/email-support-agent/) | AI replies to customer emails | Email | LangChain, Claude, standalone |
-| [SMS Support Bot](customer-support/sms-support/) | Two-way SMS helpdesk | SMS | TypeScript |
-| [Omnichannel Support](customer-support/omnichannel-support/) | Email + SMS in one agent | Email + SMS | Python |
-| [Worker Dispatch via SMS](hiring-and-recruiting/sms-worker-dispatch/) | Mass SMS to workers, track replies | SMS | Python |
-| [Candidate Email Outreach](hiring-and-recruiting/candidate-email-outreach/) | Personalized recruiter emails | Email | Python |
-| [Interview Scheduler](hiring-and-recruiting/interview-scheduler/) | Book interviews via email | Email | Python |
-| [Cold Outreach Sequences](sales-and-marketing/cold-outreach-sequences/) | Multi-step email campaigns | Email | Python |
-| [SMS Lead Qualification](sales-and-marketing/sms-lead-qualification/) | Qualify leads via SMS | SMS | TypeScript |
-| [Newsletter Agent](sales-and-marketing/newsletter-agent/) | AI-written email newsletters | Email | Python |
-| [Research Agent](research/email-research-agent/) | Agent emails primary sources | Email | Python |
-| [Incident Alerts](notifications-and-alerts/incident-alerts/) | On-call escalation | Email + SMS | Python + TypeScript |
-| [Transactional SMS](notifications-and-alerts/order-and-transactional-sms/) | Order updates via SMS | SMS | Python |
+### Customer Support
 
----
+| Example | Stack | Complexity |
+|---------|-------|------------|
+| [AI Email Support Agent](customer-support/email-support-agent/) | LangChain + Commune | Beginner |
+| [SMS Support Bot](customer-support/sms-support/) | Python + Commune | Beginner |
+| [Omnichannel Support (Email + SMS)](customer-support/omnichannel-support/) | Python + Commune | Advanced |
+| [Ticket Triage + Routing](customer-support/ticket-triage/) | CrewAI + Commune | Intermediate |
 
-## Choose by channel
+### Hiring & Recruiting
+
+| Example | Stack | Complexity |
+|---------|-------|------------|
+| [Candidate Outreach Sequence](hiring-and-recruiting/candidate-email-outreach/) | Python + Commune | Intermediate |
+| [SMS Worker Dispatch](hiring-and-recruiting/sms-worker-dispatch/) | Python + Commune | Intermediate |
+| [Automated Interview Scheduling](hiring-and-recruiting/interview-scheduler/) | LangChain + Commune | Advanced |
+
+### Sales & Marketing
+
+| Example | Stack | Complexity |
+|---------|-------|------------|
+| [Cold Email Outreach](sales-and-marketing/cold-outreach-sequences/) | Python + Commune | Intermediate |
+| [SMS Lead Qualification](sales-and-marketing/sms-lead-qualification/) | Python + Commune | Intermediate |
+| [Newsletter Agent](sales-and-marketing/newsletter-agent/) | Python + Commune | Beginner |
+| [Follow-up Sequence](sales-and-marketing/follow-up-sequences/) | CrewAI + Commune | Advanced |
+
+### Notifications & Alerts
+
+| Example | Stack | Complexity |
+|---------|-------|------------|
+| [Incident Alert System](notifications-and-alerts/incident-alerts/) | Python + Commune | Advanced |
+| [Scheduled Digest Emails](notifications-and-alerts/digest-emails/) | Python + Commune | Beginner |
+| [Transactional SMS](notifications-and-alerts/order-and-transactional-sms/) | Python + Commune | Beginner |
+
+### Research
+
+| Example | Stack | Complexity |
+|---------|-------|------------|
+| [Email Research Agent](research/email-research-agent/) | Python + Commune | Intermediate |
+
+## Browse by channel
 
 **Email only**
-- [Customer Support Agent](customer-support/email-support-agent/) — AI replies to inbound support emails
-- [Candidate Email Outreach](hiring-and-recruiting/candidate-email-outreach/) — personalized recruiter sequences
-- [Cold Outreach Sequences](sales-and-marketing/cold-outreach-sequences/) — multi-step sales campaigns
+- [AI Email Support Agent](customer-support/email-support-agent/) — AI replies to inbound support emails
+- [Candidate Outreach Sequence](hiring-and-recruiting/candidate-email-outreach/) — personalized recruiter sequences
+- [Cold Email Outreach](sales-and-marketing/cold-outreach-sequences/) — multi-step sales campaigns
 
 **SMS only**
-- [Worker Dispatch via SMS](hiring-and-recruiting/sms-worker-dispatch/) — mass SMS to workers, track replies
+- [SMS Worker Dispatch](hiring-and-recruiting/sms-worker-dispatch/) — mass SMS to workers, track YES/NO confirmations
 - [SMS Lead Qualification](sales-and-marketing/sms-lead-qualification/) — qualify inbound leads via SMS conversation
-- [SMS capabilities reference](../capabilities/sms/) — quickstart through mass SMS
+- [Transactional SMS](notifications-and-alerts/order-and-transactional-sms/) — order updates via SMS
 
 **Both Email + SMS**
 - [Omnichannel Support](customer-support/omnichannel-support/) — unified email and SMS support agent
-- [Incident Alerts](notifications-and-alerts/incident-alerts/) — email escalation with SMS on-call paging
+- [Incident Alert System](notifications-and-alerts/incident-alerts/) — email escalation with SMS on-call paging
 
----
+## Quick start (any use case)
 
-## Choose by industry
+```python
+from commune import CommuneClient
+
+client = CommuneClient(api_key="comm_...")
+
+# Every use case starts here
+inbox = client.inboxes.create(local_part="your-agent-name")
+print(f"Your agent's address: {inbox.address}")
+```
+
+## Browse by industry
 
 **SaaS / Software**
 - [customer-support/](customer-support/) — all support examples
@@ -56,3 +89,8 @@ Organized by what you're building, not by framework. Every example includes work
 
 **Operations**
 - [notifications-and-alerts/incident-alerts/](notifications-and-alerts/incident-alerts/) — on-call escalation over email and SMS
+
+## Related
+
+- [Capabilities reference](../capabilities/) — deep dives on each feature
+- [Framework examples](../langchain/) — framework-specific patterns
