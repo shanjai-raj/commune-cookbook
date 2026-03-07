@@ -44,16 +44,14 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
 # ── Graph state ────────────────────────────────────────────────────────────
 
-# BUG-CORRECT-1: thread_id is NOT included in the State TypedDict.
-# The webhook handler extracts it from the payload and passes it via the
-# initial state, but LangGraph nodes cannot access fields not declared here.
-# When the reply node calls commune.messages.send(), it has no thread_id,
-# so it omits it — every reply creates a brand-new disconnected email thread
-# instead of continuing the customer's conversation.
-# Fix: add  thread_id: str  to this TypedDict.
+# FIX BUG-CORRECT-1: added thread_id to State TypedDict.
+# Without it, the reply node could not access thread_id — commune.messages.send()
+# was called without it, creating a brand-new disconnected email thread for every
+# reply. Now thread_id flows through state and the reply node uses it correctly.
 class State(TypedDict):
     message_id:   str
     inbox_id:     str
+    thread_id:    str   # FIX BUG-CORRECT-1: required for reply thread continuity
     sender:       str
     subject:      str
     body:         str
@@ -96,14 +94,14 @@ def reply_node(state: State) -> dict:
     )
     reply_text = draft.content
 
-    # BUG-CORRECT-1 surface: thread_id not available in state — send() called
-    # without it, so each reply opens a new thread.
+    # FIX BUG-CORRECT-1: thread_id is now in state — pass it to continue the
+    # existing conversation thread instead of creating a new top-level email.
     commune.messages.send(
         to=state["sender"],
         subject=f"Re: {state['subject']}",
-        body=reply_text,               # note: correct param is `text` in commune-mail
+        text=reply_text,               # correct param name in commune-mail SDK
         inbox_id=state["inbox_id"],
-        # thread_id=state["thread_id"]  — would be here if state included it
+        thread_id=state["thread_id"],  # FIX BUG-CORRECT-1: continue customer's thread
     )
 
     print(f"[reply] Sent to {state['sender']}")
@@ -173,26 +171,33 @@ def webhook() -> Response:
     initial_state: State = {
         "message_id": message["id"],
         "inbox_id":   event["inboxId"],
+        "thread_id":  message["threadId"],  # FIX BUG-CORRECT-1: include thread_id in state
         "sender":     sender,
         "subject":    message.get("metadata", {}).get("subject", ""),
         "body":       message.get("content", ""),
         "intent":     "general",   # will be overwritten by triage node
         "reply_text": "",
-        # thread_id from message["threadId"] is NOT included — BUG-CORRECT-1
     }
 
-    # BUG-ARCH-1: graph.invoke() is called synchronously inside the webhook
-    # handler. A LangGraph graph with LLM calls (triage + reply) takes 10-30
-    # seconds to complete. Commune's webhook delivery expects a response within
-    # ~5 seconds; a slow response triggers retries, which will double-process
-    # the email. For high-traffic inboxes this blocks the Flask worker thread
-    # for the full duration, reducing throughput to ~2 req/s per worker.
-    # Fix: acknowledge with 200 immediately, then run the graph in a background
-    # thread (or better: a task queue like Celery or BullMQ).
-    graph.invoke(
-        initial_state,
-        # BUG-CORRECT-2: no config passed — all events share the same checkpoint key
-    )
+    # FIX BUG-ARCH-1: return 200 immediately, run graph in background thread.
+    # graph.invoke() with LLM nodes takes 10-30 seconds — returning that late
+    # causes Commune to retry the webhook, double-processing the email.
+    # Background thread acknowledges instantly; graph runs after response is sent.
+    #
+    # FIX BUG-CORRECT-2: pass config with unique thread_id per event.
+    # Without config, MemorySaver routes all invocations through the same
+    # checkpoint key — state from event A bleeds into event B. Each event
+    # must use its own message_id as the LangGraph thread_id so checkpoints
+    # are fully isolated.
+    event_id = message["id"]
+
+    def run_graph():
+        graph.invoke(
+            initial_state,
+            config={"configurable": {"thread_id": event_id}},  # FIX BUG-CORRECT-2
+        )
+
+    threading.Thread(target=run_graph, daemon=True).start()
 
     return Response(json.dumps({"ok": True}), status=200, mimetype="application/json")
 
