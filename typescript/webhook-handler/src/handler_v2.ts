@@ -30,14 +30,12 @@ const port = process.env.PORT || 3000;
 const commune = new CommuneClient({ apiKey: process.env.COMMUNE_API_KEY! });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
-// BUG-SEC-1: express.json() is registered globally before the webhook route.
-// By the time the POST /webhook handler runs, req.body is a parsed JS object —
-// not the original raw bytes sent by Commune. Calling verifyCommuneWebhook()
-// with a stringified object instead of the original Buffer will cause the HMAC
-// to never match (or always match if the check is accidentally bypassed when
-// the cast returns an empty string), allowing spoofed requests through.
-// Fix: use express.raw({ type: 'application/json' }) on the /webhook route
-// BEFORE the global json parser, and pass req.body as a Buffer directly.
+// FIX BUG-SEC-1: express.raw() is registered for the /webhook route ONLY,
+// before any JSON parsing. This preserves req.body as a raw Buffer — the
+// exact bytes Commune signed. verifyCommuneWebhook() computes HMAC over
+// these bytes, which matches the signature Commune computed server-side.
+// Do NOT use express.json() globally when you need raw-body HMAC verification.
+app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 // ── Webhook endpoint ───────────────────────────────────────────────────────
@@ -45,16 +43,16 @@ app.use(express.json());
 app.post('/webhook', async (req: Request, res: Response) => {
   const secret = process.env.COMMUNE_WEBHOOK_SECRET!;
 
-  // Signature verification — req.body is already a parsed object here
-  // because express.json() ran first. JSON.stringify() is used to convert
-  // it back to a string, but whitespace and key order differ from the
-  // original bytes — HMAC will not match.
+  // FIX BUG-SEC-1: req.body is a raw Buffer from express.raw() above.
+  // Pass it directly to verifyCommuneWebhook() — this is the exact byte
+  // sequence that Commune signed, so HMAC comparison will succeed.
+  const rawBody = req.body as Buffer;
   const sig = req.headers['x-commune-signature'] as string;
   const ts  = req.headers['x-commune-timestamp'] as string;
 
   try {
     verifyCommuneWebhook({
-      rawBody:   JSON.stringify(req.body),  // BUG-SEC-1: should be the original Buffer, not re-serialised object
+      rawBody:   rawBody.toString('utf8'),  // FIX: original bytes, not JSON.stringify(parsed object)
       timestamp: ts,
       signature: sig,
       secret,
@@ -64,8 +62,8 @@ app.post('/webhook', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Invalid signature' });
   }
 
-  // From here req.body is the parsed payload
-  const payload = req.body as InboundEmailWebhookPayload;
+  // Parse JSON after signature verification
+  const payload = JSON.parse(rawBody.toString('utf8')) as InboundEmailWebhookPayload;
   const { message, extractedData, security } = payload;
 
   if (message.direction !== 'inbound') {
@@ -103,12 +101,10 @@ app.post('/webhook', async (req: Request, res: Response) => {
     const threadMessages = await commune.threads.messages(message.threadId);
     const history = threadMessages.map(m => ({
       role:    m.direction === 'inbound' ? 'user' as const : 'assistant' as const,
-      // BUG-CORRECT-2: message.body does not exist on the Message type.
-      // The correct field is message.content (plain text) or message.contentHtml.
-      // Accessing a non-existent property returns undefined silently in JS,
-      // so history entries will all have content: "undefined" — the LLM will
-      // receive corrupted context without any runtime error or type error.
-      content: m.body ?? '',
+      // FIX BUG-CORRECT-2: use .content (plain text), not .body (does not exist
+      // on the Message type). Accessing a non-existent field returns undefined
+      // silently, causing all history entries to have content: "undefined".
+      content: m.content ?? '',
     }));
 
     const priorityNote = urgency === 'high'
@@ -134,17 +130,16 @@ app.post('/webhook', async (req: Request, res: Response) => {
 
     const reply = completion.choices[0].message.content!;
 
-    // Send reply
-    // BUG-CORRECT-1: threadId is not passed — every reply creates a brand-new
-    // top-level email thread instead of continuing the existing conversation.
-    // The customer will receive each reply as an unrelated email with no
-    // shared subject line or thread context. Fix: pass threadId: message.threadId.
+    // FIX BUG-CORRECT-1: pass threadId so the reply continues the existing
+    // conversation thread instead of creating a new top-level email.
+    // Without this, each AI reply arrives as an unrelated email — customers
+    // lose the thread context and cannot reply in the same conversation.
     await commune.messages.send({
-      to:      sender,
-      subject: `Re: ${message.metadata?.subject ?? ''}`,
-      text:    reply,
-      inboxId: payload.inboxId,
-      // threadId intentionally omitted — BUG-CORRECT-1
+      to:       sender,
+      subject:  `Re: ${message.metadata?.subject ?? ''}`,
+      text:     reply,
+      inboxId:  payload.inboxId,
+      threadId: message.threadId,  // FIX BUG-CORRECT-1: continue the existing thread
     });
 
     // Tag urgent threads for dashboard visibility
