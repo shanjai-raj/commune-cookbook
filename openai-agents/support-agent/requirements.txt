@@ -1,3 +1,3 @@
-openai-agents>=0.0.3
+openai-agents>=0.17.4
 commune-mail>=0.3.0
 python-dotenv>=1.0.0
