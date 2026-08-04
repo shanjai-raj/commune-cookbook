@@ -1,4 +1,4 @@
-commune-mail>=0.3.0
+commune-mail>=0.3.3
 langchain>=0.2.0
 langchain-openai>=0.1.0
 openai>=1.30.0
