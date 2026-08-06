@@ -1,4 +1,4 @@
-anthropic>=0.28.0
+anthropic>=0.97.0
 commune-mail>=0.3.0
 flask>=3.0.0
 requests>=2.31.0
