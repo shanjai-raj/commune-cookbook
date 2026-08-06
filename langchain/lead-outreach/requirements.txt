@@ -1,5 +1,5 @@
 commune-mail>=0.3.0
 langchain>=0.2.0
-langchain-openai>=0.1.0
+langchain-openai>=1.2.1
 openai>=1.30.0
 python-dotenv>=1.0.0
